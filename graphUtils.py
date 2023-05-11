@@ -3,50 +3,49 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 from datetime import datetime
 
-def initGraph():
-        fig, (axND, axPos) = plt.subplots(2,figsize=(50,50))
+class gpsPlotter(object):
+    def __init__(self):
+        self._fig, (self._axND, self._axPos) = plt.subplots(2,figsize=(50,50))
 
-        axPos.set_title("Position history")
+        self._axPos.set_title("Position history")
 
-        mPos = Basemap(projection='merc',
-                       llcrnrlat=-80, urcrnrlat=80,
-                       llcrnrlon=-180, urcrnrlon=180,
-                       lat_ts=20, ax = axPos)
+        self._mPos = Basemap(projection='merc',
+                             llcrnrlat=-80, urcrnrlat=80,
+                             llcrnrlon=-180, urcrnrlon=180,
+                             lat_ts=20, ax = self._axPos)
 
-        mPos.shadedrelief(scale=0.2)
-        mPos.drawcoastlines(color='white', linewidth=0.2)
-        mPos.drawparallels(np.arange(-90,90,30),labels=[1,0,0,0])
-        mPos.drawmeridians(np.arange(mPos.lonmin,mPos.lonmax+30,60),labels=[0,0,0,1])
+        self._mPos.shadedrelief(scale=0.2)
+        self._mPos.drawcoastlines(color='white', linewidth=0.2)
+        self._mPos.drawparallels(np.arange(-90,90,30),labels=[1,0,0,0])
+        self._mPos.drawmeridians(np.arange(self._mPos.lonmin,
+                                           self._mPos.lonmax+30,60),
+                                 labels=[0,0,0,1])
 
-        mND = Basemap(projection='merc',
-                      llcrnrlat=-80, urcrnrlat=80,
-                      llcrnrlon=-180, urcrnrlon=180,
-                      lat_ts=20, ax = axND)
+        self._mND = Basemap(projection='merc',
+                            llcrnrlat=-80, urcrnrlat=80,
+                            llcrnrlon=-180, urcrnrlon=180,
+                            lat_ts=20, ax = self._axND)
 
         plt.ion()
+
+    def updateMap(self, longitude, latitude):
+        x, y = self._mPos(longitude, latitude)
+        date = datetime.utcnow()
+
+        self._mND.shadedrelief(scale=0.2)
+        self._mND.drawcoastlines(color='white', linewidth=0.2)
+        self._mND.drawparallels(np.arange(-90,90,30),labels=[1,0,0,0])
+        self._mND.drawmeridians(np.arange(self._mND.lonmin,
+                                    self._mND.lonmax+30,60),
+                                labels=[0,0,0,1])
+        self._mND.nightshade(date, ax=self._axND)
+
+        self._axND.set_title("Current position")
+        self._axND.plot(x,y,'r.')
         
-        return fig, axND, axPos, mND, mPos
+        self._axPos.plot(x,y,'r.')
+        
+        plt.draw()
+        plt.pause(0.001)
 
-
-def plotMap(longitude, latitude, axND, axPos, mND, mPos):
-    x, y = mPos(longitude, latitude)
-    date = datetime.utcnow()
-
-    mND.shadedrelief(scale=0.2)
-    mND.drawcoastlines(color='white', linewidth=0.2)
-    mND.drawparallels(np.arange(-90,90,30),labels=[1,0,0,0])
-    mND.drawmeridians(np.arange(mND.lonmin,mND.lonmax+30,60),labels=[0,0,0,1])
-    mND.nightshade(date, ax=axND)
-
-    axND.set_title("Current position")
-    axND.plot(x,y,'r.')
-    
-    axPos.plot(x,y,'r.')
-    
-    plt.draw()
-    plt.pause(0.001)
-
-    axND.cla()
-    
-    return x, y, axND, axPos, mND, mPos
-
+        self._axND.cla()

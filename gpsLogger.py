@@ -2,27 +2,25 @@
 
 import sys
 from gpsUtils import gpsLogger
-from graphUtils import initGraph, plotMap
+from graphUtils import gpsPlotter
 
 if __name__ == '__main__':
     try:
-        gps = gpsLogger()
+        gpsLog = gpsLogger()
         
-        fig, axND, axPos, mND, mPos = initGraph()
+        gpsPlt = gpsPlotter()
 
         while True:
-            gps.update()
+            gpsLog.update()
 
-            plotMap(gps.longitude, gps.latitude,
-                    axND, axPos, 
-                    mND, mPos)
+            gpsPlt.updateMap(gpsLog.longitude, gpsLog.latitude)
 
-            print(f"T = {gps.time} "
-                  f"LONG = {gps.longitude:.3f} "
-                  f"LAT = {gps.latitude:.3f} "
-                  f"YAW = {gps.yaw:.3f} "
-                  f"TILT = {gps.tilt:.3f}")
+            print(f"T = {gpsLog.time} "
+                  f"LONG = {gpsLog.longitude:.3f} "
+                  f"LAT = {gpsLog.latitude:.3f} "
+                  f"YAW = {gpsLog.yaw:.3f} "
+                  f"TILT = {gpsLog.tilt:.3f}")
   
     except KeyboardInterrupt:
-        gps.close()
+        gpsLog.close()
         sys.exit("\nExiting...")
