@@ -1,13 +1,49 @@
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as grd
 import numpy as np
 from mpl_toolkits.basemap import Basemap
 from datetime import datetime
 
 class gpsPlotter(object):
     def __init__(self):
-        self._fig, (self._axND, self._axPos) = plt.subplots(2,figsize=(50,50))
+        self._fig = plt.figure(figsize=(50, 50))
+        self._grid = grd.GridSpec(2, 2)
 
+        self._axND = plt.Subplot(self._fig, self._grid[0])
+        self._axND.set_title("Current position")
+        self._fig.add_subplot(self._axND)
+
+        self._axPos = plt.Subplot(self._fig, self._grid[2])
         self._axPos.set_title("Position history")
+        self._fig.add_subplot(self._axPos)
+
+        self._gpsMeasGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[1])
+
+        self._axAlt = plt.Subplot(self._fig, self._gpsMeasGrid[0])
+        self._axAlt.set_title("Altitude (m)")
+        self._fig.add_subplot(self._axAlt)
+
+        self._axTilt = plt.Subplot(self._fig, self._gpsMeasGrid[1])
+        self._axTilt.set_title("GPS Tilt (radians)")
+        self._fig.add_subplot(self._axTilt)
+
+        self._axYaw = plt.Subplot(self._fig, self._gpsMeasGrid[2])
+        self._axYaw.set_title("GPS Yaw (radians)")
+        self._fig.add_subplot(self._axYaw)
+
+        self._orientGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[3])
+
+        self._axOrientRoll = plt.Subplot(self._fig, self._orientGrid[2])
+        self._axOrientRoll.set_title("Roll (radians)")
+        self._fig.add_subplot(self._axOrientRoll)
+
+        self._axOrientPitch = plt.Subplot(self._fig, self._orientGrid[1])
+        self._axOrientPitch.set_title("Pitch (radians)")
+        self._fig.add_subplot(self._axOrientPitch)
+
+        self._axOrientYaw = plt.Subplot(self._fig, self._orientGrid[0])
+        self._axOrientYaw.set_title("Yaw (radians)")
+        self._fig.add_subplot(self._axOrientYaw)
 
         self._mPos = Basemap(projection='merc',
                              llcrnrlat=-80, urcrnrlat=80,
