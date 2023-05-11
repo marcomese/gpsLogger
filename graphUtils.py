@@ -3,9 +3,12 @@ import matplotlib.gridspec as grd
 import numpy as np
 from mpl_toolkits.basemap import Basemap
 from datetime import datetime
+from gpsUtils import gpsLogger
 
-class gpsPlotter(object):
-    def __init__(self):
+class gpsPlotter(gpsLogger):
+    def __init__(self, localIP = "0.0.0.0", localPort = 6003):
+        super().__init__(localIP, localPort)
+
         self._fig = plt.figure(figsize=(50, 50))
         self._grid = grd.GridSpec(2, 2)
 
@@ -64,8 +67,13 @@ class gpsPlotter(object):
 
         plt.ion()
 
-    def updateMap(self, longitude, latitude):
-        x, y = self._mPos(longitude, latitude)
+    def updateMap(self):
+        super().update()
+
+        lon = super().longitude
+        lat = super().latitude
+
+        x, y = self._mPos(lon, lat)
         date = datetime.utcnow()
 
         self._mND.shadedrelief(scale=0.2)

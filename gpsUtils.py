@@ -13,7 +13,13 @@ gpsDataRegex = re.compile(gpsDataPattern)
 orientationPattern = f"Yaw,({numericPattern})?,Tilt,({numericPattern})?"
 orientationRegex = re.compile(orientationPattern)
 
-positionPattern = f"\$GPGGA,({numericPattern}),({numericPattern}),(N|S),({numericPattern}),(W|E)"
+positionPattern = (f"\$GPGGA,({numericPattern})," # timestamp
+                   f"({numericPattern}),(N|S),"   # latitude
+                   f"({numericPattern}),(W|E),"   # longitude
+                   f"({numericPattern}),"         # fix quality
+                   f"({numericPattern}),"         # number of satellites
+                   f"({numericPattern}),"         # hdop
+                   f"({numericPattern}),M")         # altitude
 positionRegex = re.compile(positionPattern)
 
 gpsTimePattern = "(\d\d)(\d\d)(\d\d).00"
@@ -21,7 +27,8 @@ gpsTimeRegex = re.compile(gpsTimePattern)
 
 class gpsLogger(object):
     def __init__(self, localIP = "0.0.0.0", localPort = 6003):
-        self._netlogger = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        self._netlogger = socket.socket(family=socket.AF_INET,
+                                        type=socket.SOCK_DGRAM)
         
         if self._netlogger is not None:
             self._netlogger.bind((localIP, localPort))
@@ -34,6 +41,7 @@ class gpsLogger(object):
         self._lastLat = nan
         self._lastYaw = nan
         self._lastTilt = nan
+        self._lastAltitude = nan
 
     @property
     def time(self):
@@ -54,6 +62,10 @@ class gpsLogger(object):
     @property
     def tilt(self):
         return self._lastTilt
+
+    @property
+    def altitude(self):
+        return self._lastAltitude
 
     def _collectGPSData(self, bufferSize):
         if self._netlogger is not None:
@@ -79,25 +91,38 @@ class gpsLogger(object):
 
             gpsOrientData = orientationRegex.findall(gpsStr)
             if gpsOrientData != []:
-                yaw = float(gpsOrientData[0][0] or nan)
-                tilt = float(gpsOrientData[0][1] or nan)
+                data = gpsOrientData[0]
+                yaw = float(data[0] or nan)
+                tilt = float(data[1] or nan)
                 self._lastYaw  = yaw
                 self._lastTilt = tilt
 
             gpsPositionData = positionRegex.findall(gpsStr)
             if gpsPositionData != []:
-                gpsTime = gpsTimeRegex.findall(gpsPositionData[0][0])[0]
+                data = gpsPositionData[0]
+                gpsTime = gpsTimeRegex.findall(data[0])[0]
                 gpsTimeStr = f"{gpsTime[0]}:{gpsTime[1]}:{gpsTime[2]}"
 
-                latSig = -1 if gpsPositionData[0][2] == 'S' else 1
-                latitude = latSig*float(gpsPositionData[0][1] or nan)/100.0
+                latSig = -1 if data[2] == 'S' else 1
+                latitude = latSig*float(data[1] or nan)/100.0
                 
-                longSig = -1 if gpsPositionData[0][4] == 'W' else 1
-                longitude = longSig*float(gpsPositionData[0][3] or nan)/100.0
+                longSig = -1 if data[4] == 'W' else 1
+                longitude = longSig*float(data[3] or nan)/100.0
 
-                self._lastTime = gpsTimeStr
-                self._lastLong = longitude
-                self._lastLat  = latitude
+                altitude = float(data[8] or nan)
+
+                self._lastTime     = gpsTimeStr
+                self._lastLong     = longitude
+                self._lastLat      = latitude
+                self._lastAltitude = altitude
+
+    def __str__(self):
+        return (f"T = {self._lastTime} "
+                f"LONG = {self._lastLong:.3f} "
+                f"LAT = {self._lastLat:.3f} "
+                f"YAW = {self._lastYaw:.3f} "
+                f"TILT = {self._lastTilt:.3f} "
+                f"ALTITUDE = {self._lastAltitude:.3f}")
 
     def close(self):
         self._netlogger.close()
