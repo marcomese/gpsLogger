@@ -3,11 +3,21 @@ import matplotlib.gridspec as grd
 import numpy as np
 from mpl_toolkits.basemap import Basemap
 from datetime import datetime
+from time import strptime, gmtime
 from gpsUtils import gpsLogger
 
 class gpsPlotter(gpsLogger):
     def __init__(self, localIP = "0.0.0.0", localPort = 6003):
         super().__init__(localIP, localPort)
+
+        self._tArr = []
+        self._altArr = []
+        self._gpsTiltArr = []
+        self._gpsYawArr = []
+        self._rollArr = []
+        self._pitchArr = []
+        self._yawArr = []
+        self._tm = 0
 
         self._fig = plt.figure(figsize=(50, 50))
         self._grid = grd.GridSpec(2, 2)
@@ -36,7 +46,7 @@ class gpsPlotter(gpsLogger):
 
         self._orientGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[3])
 
-        self._axOrientRoll = plt.Subplot(self._fig, self._orientGrid[2])
+        self._axOrientRoll = plt.Subplot(self._fig, self._orientGrid[0])
         self._axOrientRoll.set_title("Roll (radians)")
         self._fig.add_subplot(self._axOrientRoll)
 
@@ -44,7 +54,7 @@ class gpsPlotter(gpsLogger):
         self._axOrientPitch.set_title("Pitch (radians)")
         self._fig.add_subplot(self._axOrientPitch)
 
-        self._axOrientYaw = plt.Subplot(self._fig, self._orientGrid[0])
+        self._axOrientYaw = plt.Subplot(self._fig, self._orientGrid[2])
         self._axOrientYaw.set_title("Yaw (radians)")
         self._fig.add_subplot(self._axOrientYaw)
 
@@ -67,9 +77,18 @@ class gpsPlotter(gpsLogger):
 
         plt.ion()
 
-    def updateMap(self):
+    def update(self):
         super().update()
+        
+        self.updateMap()
+        self.updateMeas()
 
+        plt.draw()
+        plt.pause(0.001)
+
+        self._axND.cla()
+
+    def updateMap(self):
         lon = super().longitude
         lat = super().latitude
 
@@ -88,8 +107,22 @@ class gpsPlotter(gpsLogger):
         self._axND.plot(x,y,'r.')
         
         self._axPos.plot(x,y,'r.')
-        
-        plt.draw()
-        plt.pause(0.001)
 
-        self._axND.cla()
+    def updateMeas(self, timeInterval = 5):
+        currTmStr = super().time
+        alt = super().altitude
+        
+        if currTmStr == '':
+            return
+
+        cTmStruct = strptime(currTmStr, "%H:%M:%S")
+
+        currTm = (cTmStruct.tm_sec + (cTmStruct.tm_min * 60)  + (cTmStruct.tm_hour * 3600))
+
+        if currTm-self._tm>=timeInterval:
+            self._tm = currTm
+
+            self._altArr.append(alt)
+            self._tArr.append(currTmStr)
+        
+            self._axAlt.plot(self._tArr, self._altArr,'r.:')

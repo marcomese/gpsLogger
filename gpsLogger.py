@@ -8,10 +8,10 @@ if __name__ == '__main__':
         gps = gpsPlotter()
 
         while True:
-            gps.updateMap()
+            gps.update()
 
             print(gps)
   
     except KeyboardInterrupt:
-        gpsLog.close()
+        gps.close()
         sys.exit("\nExiting...")

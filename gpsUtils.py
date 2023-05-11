@@ -19,7 +19,7 @@ positionPattern = (f"\$GPGGA,({numericPattern})," # timestamp
                    f"({numericPattern}),"         # fix quality
                    f"({numericPattern}),"         # number of satellites
                    f"({numericPattern}),"         # hdop
-                   f"({numericPattern}),M")         # altitude
+                   f"({numericPattern}),M")       # altitude
 positionRegex = re.compile(positionPattern)
 
 gpsTimePattern = "(\d\d)(\d\d)(\d\d).00"
@@ -41,7 +41,7 @@ class gpsLogger(object):
         self._lastLat = nan
         self._lastYaw = nan
         self._lastTilt = nan
-        self._lastAltitude = nan
+        self._lastAlt = nan
 
     @property
     def time(self):
@@ -65,7 +65,7 @@ class gpsLogger(object):
 
     @property
     def altitude(self):
-        return self._lastAltitude
+        return self._lastAlt
 
     def _collectGPSData(self, bufferSize):
         if self._netlogger is not None:
@@ -111,10 +111,10 @@ class gpsLogger(object):
 
                 altitude = float(data[8] or nan)
 
-                self._lastTime     = gpsTimeStr
-                self._lastLong     = longitude
-                self._lastLat      = latitude
-                self._lastAltitude = altitude
+                self._lastTime = gpsTimeStr
+                self._lastLong = longitude
+                self._lastLat  = latitude
+                self._lastAlt  = altitude
 
     def __str__(self):
         return (f"T = {self._lastTime} "
@@ -122,7 +122,7 @@ class gpsLogger(object):
                 f"LAT = {self._lastLat:.3f} "
                 f"YAW = {self._lastYaw:.3f} "
                 f"TILT = {self._lastTilt:.3f} "
-                f"ALTITUDE = {self._lastAltitude:.3f}")
+                f"ALTITUDE = {self._lastAlt:.3f}")
 
     def close(self):
         self._netlogger.close()
