@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grd
 import numpy as np
+from matplotlib.ticker import FormatStrFormatter
 from mpl_toolkits.basemap import Basemap
 from datetime import datetime
 from time import strptime, gmtime
@@ -30,32 +31,46 @@ class gpsPlotter(gpsLogger):
         self._axPos.set_title("Position history")
         self._fig.add_subplot(self._axPos)
 
-        self._gpsMeasGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[1])
+        self._gpsMeasGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[1], hspace=0.0)
 
         self._axAlt = plt.Subplot(self._fig, self._gpsMeasGrid[0])
-        self._axAlt.set_title("Altitude (m)")
+        self._axAlt.set_title("GPS measurements")
+        self._axAlt.set_ylabel("Altitude (m)")
+        self._axAlt.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        self._axAlt.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         self._fig.add_subplot(self._axAlt)
 
-        self._axTilt = plt.Subplot(self._fig, self._gpsMeasGrid[1])
-        self._axTilt.set_title("GPS Tilt (radians)")
+        self._axTilt = plt.Subplot(self._fig, self._gpsMeasGrid[1], sharex=self._axAlt)
+        self._axTilt.set_ylabel("GPS Tilt (radians)")
+        self._axTilt.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        self._axTilt.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         self._fig.add_subplot(self._axTilt)
 
-        self._axYaw = plt.Subplot(self._fig, self._gpsMeasGrid[2])
-        self._axYaw.set_title("GPS Yaw (radians)")
+        self._axYaw = plt.Subplot(self._fig, self._gpsMeasGrid[2], sharex=self._axAlt)
+        self._axYaw.set_ylabel("GPS Yaw (radians)")
+        self._axYaw.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        self._axYaw.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         self._fig.add_subplot(self._axYaw)
 
-        self._orientGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[3])
+        self._orientGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[3], hspace=0.0)
 
         self._axOrientRoll = plt.Subplot(self._fig, self._orientGrid[0])
-        self._axOrientRoll.set_title("Roll (radians)")
+        self._axOrientRoll.set_title("IMU sensor measurements")
+        self._axOrientRoll.set_ylabel("Roll (radians)")
+        self._axOrientRoll.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        self._axOrientRoll.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axOrientRoll)
 
-        self._axOrientPitch = plt.Subplot(self._fig, self._orientGrid[1])
-        self._axOrientPitch.set_title("Pitch (radians)")
+        self._axOrientPitch = plt.Subplot(self._fig, self._orientGrid[1], sharex=self._axOrientRoll)
+        self._axOrientPitch.set_ylabel("Pitch (radians)")
+        self._axOrientPitch.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        self._axOrientPitch.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axOrientPitch)
 
-        self._axOrientYaw = plt.Subplot(self._fig, self._orientGrid[2])
-        self._axOrientYaw.set_title("Yaw (radians)")
+        self._axOrientYaw = plt.Subplot(self._fig, self._orientGrid[2], sharex=self._axOrientRoll)
+        self._axOrientYaw.set_ylabel("Yaw (radians)")
+        self._axOrientYaw.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        self._axOrientYaw.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axOrientYaw)
 
         self._mPos = Basemap(projection='merc',
@@ -77,18 +92,7 @@ class gpsPlotter(gpsLogger):
 
         plt.ion()
 
-    def update(self):
-        super().update()
-        
-        self.updateMap()
-        self.updateMeas()
-
-        plt.draw()
-        plt.pause(0.001)
-
-        self._axND.cla()
-
-    def updateMap(self):
+    def _updateMap(self):
         lon = super().longitude
         lat = super().latitude
 
@@ -108,9 +112,22 @@ class gpsPlotter(gpsLogger):
         
         self._axPos.plot(x,y,'r.')
 
-    def updateMeas(self, timeInterval = 5):
+    def _refreshAxis(self, axisToRefresh):
+        title = axisToRefresh.get_title()
+        ylabel = axisToRefresh.yaxis.get_label().get_text()
+        fmt = axisToRefresh.yaxis.get_major_formatter()
+        
+        axisToRefresh.cla()
+        axisToRefresh.ticklabel_format(axis = 'y', style='plain', useOffset=False)
+        axisToRefresh.yaxis.set_major_formatter(fmt)
+        axisToRefresh.set_title(title)
+        axisToRefresh.set_ylabel(ylabel)
+
+    def _updateMeas(self, timeInterval = 5, maxPoints = 5):
         currTmStr = super().time
         alt = super().altitude
+        yaw = super().yaw
+        tilt = super().tilt
         
         if currTmStr == '':
             return
@@ -122,7 +139,31 @@ class gpsPlotter(gpsLogger):
         if currTm-self._tm>=timeInterval:
             self._tm = currTm
 
-            self._altArr.append(alt)
+            if len(self._tArr) >= maxPoints:
+                self._tArr.pop(0)
+                self._altArr.pop(0)
+                self._gpsYawArr.pop(0)
+                self._gpsTiltArr.pop(0)
+                self._refreshAxis(self._axAlt)
+                self._refreshAxis(self._axYaw)
+                self._refreshAxis(self._axTilt)
+
             self._tArr.append(currTmStr)
+            self._altArr.append(alt)
+            self._gpsYawArr.append(yaw)
+            self._gpsTiltArr.append(tilt)
         
             self._axAlt.plot(self._tArr, self._altArr,'r.:')
+            self._axYaw.plot(self._tArr, self._gpsYawArr,'r.:')
+            self._axTilt.plot(self._tArr, self._gpsTiltArr,'r.:')
+
+    def update(self):
+        super().update()
+        
+        self._updateMap()
+        self._updateMeas()
+
+        plt.draw()
+        plt.pause(0.001)
+
+        self._axND.cla()

@@ -118,8 +118,8 @@ class gpsLogger(object):
 
     def __str__(self):
         return (f"T = {self._lastTime} "
-                f"LONG = {self._lastLong:.3f} "
-                f"LAT = {self._lastLat:.3f} "
+                f"LONG = {self._lastLong:.5f} "
+                f"LAT = {self._lastLat:.5f} "
                 f"YAW = {self._lastYaw:.3f} "
                 f"TILT = {self._lastTilt:.3f} "
                 f"ALTITUDE = {self._lastAlt:.3f}")
