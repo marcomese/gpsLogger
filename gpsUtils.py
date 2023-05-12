@@ -10,7 +10,8 @@ gpsRegex = re.compile(gpsPattern)
 gpsDataPattern = "(\d*),"
 gpsDataRegex = re.compile(gpsDataPattern)
 
-orientationPattern = f"Yaw,({numericPattern})?,Tilt,({numericPattern})?"
+orientationPattern = (f"\$PTNL,AVR,(?:{numericPattern}),"
+                      f"({numericPattern}),Yaw,({numericPattern}),Tilt")
 orientationRegex = re.compile(orientationPattern)
 
 positionPattern = (f"\$GPGGA,({numericPattern})," # timestamp
@@ -26,7 +27,8 @@ gpsTimePattern = "(\d\d)(\d\d)(\d\d).00"
 gpsTimeRegex = re.compile(gpsTimePattern)
 
 class gpsLogger(object):
-    def __init__(self, localIP = "0.0.0.0", localPort = 6003, *args, **kwargs):
+    def __init__(self, localIP = "0.0.0.0", localPort = 6003, 
+                 bufSize = 1024, *args, **kwargs):
         super(gpsLogger, self).__init__(*args, **kwargs)
 
         self._netlogger = socket.socket(family=socket.AF_INET,
@@ -35,6 +37,7 @@ class gpsLogger(object):
         if self._netlogger is not None:
             self._netlogger.bind((localIP, localPort))
         
+        self._bufSize = bufSize
         self._lastMsgAddrPair = None
         self._lastMsg = None
         self._lastAddr = None
@@ -44,6 +47,7 @@ class gpsLogger(object):
         self._lastYaw = nan
         self._lastTilt = nan
         self._lastAlt = nan
+        self._lastGPS = None
 
     @property
     def time(self):
@@ -69,27 +73,29 @@ class gpsLogger(object):
     def altitude(self):
         return self._lastAlt
 
-    def _collectGPSData(self, bufferSize):
+    def _collectGPSData(self):
         if self._netlogger is not None:
-            self._lastMsgAddrPair = self._netlogger.recvfrom(bufferSize)
+            self._lastMsgAddrPair = self._netlogger.recvfrom(self._bufSize)
 
         if self._lastMsgAddrPair is not None:
             self._lastMsg = self._lastMsgAddrPair[0].decode('utf-8')
             self._lastAddr = self._lastMsgAddrPair[1]
 
-    def update(self, bufferSize = 1024):
+    def updateGPS(self):
         gpsTimeStr = ""
         longitude = nan
         latitude = nan
         yaw = nan
         tilt = nan
 
-        self._collectGPSData(bufferSize)
+        self._collectGPSData()
 
         gpsData = gpsRegex.findall(self._lastMsg)
 
         for g in gpsData:
             gpsStr = g[1].replace('\n',' ')
+            
+            self._lastGPS = g[0].upper()
 
             gpsOrientData = orientationRegex.findall(gpsStr)
             if gpsOrientData != []:
@@ -119,7 +125,8 @@ class gpsLogger(object):
                 self._lastAlt  = altitude
 
     def __str__(self):
-        return (f"T = {self._lastTime} "
+        return (f"({self._lastGPS}) "
+                f"T = {self._lastTime} "
                 f"LONG = {self._lastLong:.5f} "
                 f"LAT = {self._lastLat:.5f} "
                 f"YAW = {self._lastYaw:.3f} "

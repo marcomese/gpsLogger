@@ -55,10 +55,13 @@ class imuLogger(object):
         self._dbQueries = dbQueries
         self._imuConv = None
         # results from db queries
-        self._imuResults = {qN : None for qN in queries.keys()}
+        self._imuResults = {qN : {k : nan for k in qV['instances']} 
+                            for qN, qV in queries.items()}
         # results from converter
-        self._imuResults.update({'convQuat' : None,
-                                 'euler'    : None})
+        self._imuResults.update({'convQuat' : {f"q{i+1}" : nan
+                                               for i in range(4)},
+                                 'euler'    : {iToE[i] : nan
+                                               for i in range(3)}})
 
         self._logFileName = (f"{logFileName}-"
                              f"{self._initTime.tm_year}"
@@ -115,7 +118,7 @@ class imuLogger(object):
         return n | (-(n & (1 << (bits-1))))
 
     def _getTime(self, timeStr, fmt = "%Y-%m-%dT%H:%M:%S.%f"):
-            cT = timeStr.split('.')
+            cT = timeStr.replace('Z','').split('.')
 
             # on linux the decimal part of seconds cannot be > 6 digits
             uS = cT[1][:6]
@@ -153,12 +156,19 @@ class imuLogger(object):
 
             if ((s[keyword] == instances[-1]) and 
                 (t1.tm_sec - t0.tm_sec <= 1.0)):
-                retVal.update({'time' : s['time']})
+                hours = t1.tm_hour
+                mins = t1.tm_min
+                secs = t1.tm_sec
+
+                timeStr = f"{hours:02d}:{mins:02d}:{secs:02d}"
+
+                retVal.update({'time' : timeStr})
+
                 return retVal
 
         return None
 
-    def update(self):
+    def updateIMU(self):
         qRes = {}
         for tN,tQ in self._dbQueries.items():
             q = tQ['query'].format(self._queryInterval)
@@ -198,9 +208,11 @@ class imuLogger(object):
                 self._imuResults.update(convResDict)
 
     def __str__(self):
-        return (f"ACCEL = ({self.accel['X']},{self.accel['Y']},"
+        return (f"ACCEL = ({self.accel['X']},"
+                f"{self.accel['Y']},"
                 f"{self.accel['Z']}) "
-                f"GYRO =  ({self.gyro['X']},{self.gyro['Y']},"
+                f"GYRO =  ({self.gyro['X']},"
+                f"{self.gyro['Y']},"
                 f"{self.gyro['Z']}) "
                 f"QUATERNIONS = ({self.quaternions['q1']},"
                 f"{self.quaternions['q2']},"
@@ -210,8 +222,9 @@ class imuLogger(object):
                 f"{self.convQuaternions['q2']},"
                 f"{self.convQuaternions['q3']},"
                 f"{self.convQuaternions['q4']}) "
-                f"EULERS = ({self.eulers['roll']},{self.eulers['pitch']},"
-                f"{self.eulers['roll']})")
+                f"EULERS = ({self.eulers['roll']},"
+                f"{self.eulers['pitch']},"
+                f"{self.eulers['yaw']})")
 
     def __del__(self):
         if self._imuConv is not None:

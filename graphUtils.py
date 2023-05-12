@@ -29,7 +29,10 @@ class gpsPlotter(gpsLogger, imuLogger):
         self._rollArr = []
         self._pitchArr = []
         self._yawArr = []
+        self._imuTArr = []
+        self._quaternionsArr = []
         self._tm = 0
+        self._imuTM = 0
 
         self._fig = plt.figure(figsize=(50, 50))
         self._grid = grd.GridSpec(2, 2)
@@ -52,13 +55,13 @@ class gpsPlotter(gpsLogger, imuLogger):
         self._fig.add_subplot(self._axAlt)
 
         self._axTilt = plt.Subplot(self._fig, self._gpsMeasGrid[1], sharex=self._axAlt)
-        self._axTilt.set_ylabel("GPS Tilt (radians)")
+        self._axTilt.set_ylabel("GPS Tilt (degrees)")
         self._axTilt.ticklabel_format(axis = 'y', style='plain', useOffset=False)
         self._axTilt.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axTilt)
 
         self._axYaw = plt.Subplot(self._fig, self._gpsMeasGrid[2], sharex=self._axAlt)
-        self._axYaw.set_ylabel("GPS Yaw (radians)")
+        self._axYaw.set_ylabel("GPS Yaw (degrees)")
         self._axYaw.ticklabel_format(axis = 'y', style='plain', useOffset=False)
         self._axYaw.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axYaw)
@@ -67,19 +70,19 @@ class gpsPlotter(gpsLogger, imuLogger):
 
         self._axOrientRoll = plt.Subplot(self._fig, self._orientGrid[0])
         self._axOrientRoll.set_title("IMU sensor measurements")
-        self._axOrientRoll.set_ylabel("Roll (radians)")
+        self._axOrientRoll.set_ylabel("Roll (degrees)")
         self._axOrientRoll.ticklabel_format(axis = 'y', style='plain', useOffset=False)
         self._axOrientRoll.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axOrientRoll)
 
         self._axOrientPitch = plt.Subplot(self._fig, self._orientGrid[1], sharex=self._axOrientRoll)
-        self._axOrientPitch.set_ylabel("Pitch (radians)")
+        self._axOrientPitch.set_ylabel("Pitch (degrees)")
         self._axOrientPitch.ticklabel_format(axis = 'y', style='plain', useOffset=False)
         self._axOrientPitch.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axOrientPitch)
 
         self._axOrientYaw = plt.Subplot(self._fig, self._orientGrid[2], sharex=self._axOrientRoll)
-        self._axOrientYaw.set_ylabel("Yaw (radians)")
+        self._axOrientYaw.set_ylabel("Yaw (degrees)")
         self._axOrientYaw.ticklabel_format(axis = 'y', style='plain', useOffset=False)
         self._axOrientYaw.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axOrientYaw)
@@ -121,7 +124,7 @@ class gpsPlotter(gpsLogger, imuLogger):
         self._axND.set_title("Current position")
         self._axND.plot(x,y,'r.')
         
-        self._axPos.plot(x,y,'r.')
+        self._axPos.plot(x,y,'r.:')
 
     def _refreshAxis(self, axisToRefresh):
         title = axisToRefresh.get_title()
@@ -134,7 +137,7 @@ class gpsPlotter(gpsLogger, imuLogger):
         axisToRefresh.set_title(title)
         axisToRefresh.set_ylabel(ylabel)
 
-    def _updateMeas(self, timeInterval = 5, maxPoints = 5):
+    def _updateGPSMeas(self, timeInterval = 5, maxPoints = 5):
         currTmStr = super().time
         alt = super().altitude
         yaw = super().yaw
@@ -173,13 +176,58 @@ class gpsPlotter(gpsLogger, imuLogger):
         self._axYaw.plot(self._tArr, self._gpsYawArr,'r.:')
         self._axTilt.plot(self._tArr, self._gpsTiltArr,'r.:')
 
+    def _updateIMUMeas(self, timeInterval = 5, maxPoints = 5):
+        quats = super().quaternions
+        eulers = super().eulers
+        time = quats['time']
+
+        if time == '':
+            return
+
+        cTmStruct = strptime(time, "%H:%M:%S")
+
+        currTm = (cTmStruct.tm_sec + (cTmStruct.tm_min * 60)  + (cTmStruct.tm_hour * 3600))
+
+        if currTm == 0:
+            self._imuTM = 0
+
+        if (currTm - self._imuTM) < timeInterval:
+            return
+
+        self._imuTM = currTm
+
+        if len(self._imuTArr) >= maxPoints:
+            self._imuTArr.pop(0)
+            self._rollArr.pop(0)
+            self._pitchArr.pop(0)
+            self._yawArr.pop(0)
+            self._quaternionsArr.pop(0)
+            self._refreshAxis(self._axOrientRoll)
+            self._refreshAxis(self._axOrientPitch)
+            self._refreshAxis(self._axOrientYaw)
+
+        self._imuTArr.append(time)
+        self._rollArr.append(eulers['roll'])
+        self._pitchArr.append(eulers['pitch'])
+        self._yawArr.append(eulers['yaw'])
+        self._quaternionsArr.append(quats)
+        
+        self._axOrientRoll.plot(self._imuTArr, self._rollArr,'r.:')
+        self._axOrientPitch.plot(self._imuTArr, self._pitchArr,'r.:')
+        self._axOrientYaw.plot(self._imuTArr, self._yawArr,'r.:')
+
     def update(self):
-        super().update()
+        self.updateGPS()
+        self.updateIMU()
         
         self._updateMap()
-        self._updateMeas()
+        self._updateGPSMeas()
+        self._updateIMUMeas()
 
         plt.draw()
         plt.pause(0.001)
 
         self._axND.cla()
+
+    def __str__(self):
+        return super(gpsPlotter, self).__str__()
