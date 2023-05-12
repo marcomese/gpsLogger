@@ -1,5 +1,5 @@
 import sys, socket, re
-from time import sleep, gmtime, strptime
+from time import gmtime, strptime
 from influxdb import InfluxDBClient
 from itertools import zip_longest
 
