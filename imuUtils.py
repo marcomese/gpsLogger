@@ -88,6 +88,10 @@ class imuLogger(object):
     def eulers(self):
         return self._imuResults['euler']
 
+    @property
+    def results(self):
+        return self._imuResults
+
     def _toSigned(n,bits):
         n = n & (2**bits)-1
         return n | (-(n & (1 << (bits-1))))
