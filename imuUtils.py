@@ -146,6 +146,8 @@ class imuLogger(object):
             qR = list(self._dbClient.query(q).get_points())
             qRes = [q for q in self._getCmpltSeq(qR, tQ['instances'])]
 
+            print(f"q = {q} qR = {qR} qRes = {qRes}")
+
             if qRes != []:
                 self._imuResults.update({tN : qRes})
 
@@ -160,9 +162,9 @@ class imuLogger(object):
                 gyroStr = ','.join([str(g or '') for g in gyr])
 
                 strToSend = f"{gyroStr},{accelStr}\n".encode('utf-8')
-                self.imuConv.send(strToSend)
+                self._imuConv.send(strToSend)
 
-                recD = self.imuConv.recv(self._bufSize).decode('utf-8')
+                recD = self._imuConv.recv(self._bufSize).decode('utf-8')
                 quatFound = convQuatRegex.findall(recD)
 
                 if quatFound is not None:
@@ -175,6 +177,12 @@ class imuLogger(object):
                 f"GYRO = {self.gyro} "
                 f"QUATERNIONS = {self.quaternions}")
 
+    def __del__(self):
+        if self._imuConv is not None:
+            self._imuConv.close()
+        if self._dbClient is not None:
+            self._dbClient.close()
+
     def close(self):
         if self._imuConv is not None:
             self._imuConv.close()
@@ -182,8 +190,12 @@ class imuLogger(object):
             self._dbClient.close()
 
 if __name__ == "__main__":
-    imuLog = imuLogger()
+    try:
+        imuLog = imuLogger()
     
-    while True:
-        imuLog.update()
-        print(imuLog) 
+        while True:
+            imuLog.update()
+            print(imuLog) 
+    except KeyboardInterrupt:
+        imuLog.close()
+        sys.exit("\nExiting...")
