@@ -27,7 +27,9 @@ queries = {'quat'  : {'query'     : quatQuery,
 
 numericPattern = "([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)*)"
 convQuatPattern = (f"Q{numericPattern},{numericPattern},"
-                    f"{numericPattern},{numericPattern}E")
+                    f"{numericPattern},{numericPattern}"
+                    f"E{numericPattern},{numericPattern},"
+                    f"{numericPattern}")
 convQuatRegex = re.compile(convQuatPattern)
 
 class imuLogger(object):
@@ -141,8 +143,6 @@ class imuLogger(object):
             qR = list(self._dbClient.query(q).get_points())
             qRes = [q for q in self._getCmpltSeq(qR, tQ['instances'])]
 
-            print(f"q = {q} qR = {qR} qRes = {qRes}")
-
             if qRes != []:
                 self._imuResults.update({tN : qRes})
 
@@ -157,6 +157,10 @@ class imuLogger(object):
                 gyroStr = ','.join([str(g or '') for g in gyr])
 
                 strToSend = f"{gyroStr},{accelStr}\n".encode('utf-8')
+                
+                #debug
+                print(strToSend)
+                
                 self._imuConv.send(strToSend)
 
                 recD = self._imuConv.recv(self._bufSize).decode('utf-8')
