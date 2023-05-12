@@ -1,16 +1,19 @@
 import sys, socket, re
 from time import sleep, gmtime, strptime
 from influxdb import InfluxDBClient
+from itertools import zip_longest
 
-quatQuery = """SELECT "instance", "value" FROM "HKB" 
-                  WHERE ("metric" = 'quaternions' AND 
-                         time > now()-{}s)"""
+quatQuery = ("SELECT \"instance\", \"value\" FROM \"HKB\" "
+             "WHERE (\"metric\" = 'quaternions' "
+             "AND time > now()-{}s)")
 
-rawGyroQuery = """SELECT "instance", "value" FROM "HKB" 
-                  WHERE ("metric" = 'position' AND time > now()-{}s)"""
+rawGyroQuery = ("SELECT \"instance\", \"value\" FROM \"HKB\" "
+                "WHERE (\"metric\" = 'position' "
+                "AND time > now()-{}s)")
 
-rawAccelQuery = """SELECT "instance", "value" FROM "HKB" 
-                   WHERE ("metric" = 'acceleration' AND time > now()-{}s)"""
+rawAccelQuery = ("SELECT \"instance\", \"value\" FROM \"HKB\" "
+                 "WHERE (\"metric\" = 'acceleration' "
+                 "AND time > now()-{}s)")
 
 queries = {'quat'  : {'query'     : quatQuery, 
                       'instances' : ['q1','q2','q3','q4'],
@@ -23,9 +26,9 @@ queries = {'quat'  : {'query'     : quatQuery,
                       'tSigned'   : True}}
 
 numericPattern = "([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)*)"
-comptQuatPattern = (f"Q{numericPattern},{numericPattern},"
+convQuatPattern = (f"Q{numericPattern},{numericPattern},"
                     f"{numericPattern},{numericPattern}E")
-comptQuatRegex = re.compile(comptQuatPattern)
+convQuatRegex = re.compile(convQuatPattern)
 
 class imuLogger(object):
     def __init__(self, dbHost = 'calibano.ba.infn.it', dbPort = 8086,
@@ -39,6 +42,7 @@ class imuLogger(object):
 
         self._tm = gmtime()
         self._timeInterval = timeInterval
+        self._bufSize = bufSize
         self._packets = []
         self._length = 0
         self._dbQueries = dbQueries
@@ -46,7 +50,8 @@ class imuLogger(object):
         # results from db queries
         self._imuResults = {qN : None for qN in queries.keys()}
         # results from converter
-        self._imuResults.update({'euler' : None})
+        self._imuResults.update({'convQuat' : None,
+                                 'euler'    : None})
 
         self._logFileName = (f"{logFileName}-{self._tm.tm_year}"
                              f"{self._tm.tm_mon}{self._tm.tm_mday}-"
@@ -59,7 +64,7 @@ class imuLogger(object):
             
             welcomeStr = b''
             if imuConvSocket is not None:
-                imuConvSocket.connect((imuConvHost, convPort))
+                imuConvSocket.connect((convHost, convPort))
                 welcomeStr = imuConvSocket.recv(bufSize)
             
             if welcomeStr == b'Imu conv':
@@ -87,7 +92,7 @@ class imuLogger(object):
         n = n & (2**bits)-1
         return n | (-(n & (1 << (bits-1))))
 
-    def _getTime(timeStr, fmt = "%Y-%m-%dT%H:%M:%S.%f"):
+    def _getTime(self, timeStr, fmt = "%Y-%m-%dT%H:%M:%S.%f"):
             cT = timeStr.split('.')
 
             # on linux the decimal part of seconds cannot be > 6 digits
@@ -97,7 +102,7 @@ class imuLogger(object):
 
             return strptime(cT, fmt)
 
-    def _getCompleteSequence(sequence, instances, keyword = 'instance'):
+    def _getCmpltSeq(self, sequence, instances, keyword = 'instance'):
         retVal = []
         i = 0
         j = 0
@@ -135,41 +140,46 @@ class imuLogger(object):
         for tN,tQ in self._dbQueries.items():
             q = tQ['query'].format(self._timeInterval)
             qR = list(self._dbClient.query(q).get_points())
-            qRes = [q for q in self._getCompleteSequence(qR, tQ['instances'])]
+            qRes = [q for q in self._getCmpltSeq(qR, tQ['instances'])]
 
             if qRes != []:
-                self._imuResults.update{tN : qRes}
+                self._imuResults.update({tN : qRes})
 
-        if subSeq is not None:
-            quatsArr = [q['value'] for q in subSeq]
+        if self._imuConv is None:
+            return
+        
+        accelRes = self._imuResults['accel']
+        gyroRes = self._imuResults['gyro']
+        if (accelRes is not None) and (gyroRes is not None):
+            for acc,gyr in zip_longest(accelRes, gyroRes):
+                accelStr = ','.join([str(a or '') for a in acc])
+                gyroStr = ','.join([str(g or '') for g in gyr])
 
-        gyroStr = ""
-        if gyroSubSeq is not None:
-            gyroArr = [toSigned(int(g['value']),16) for g in gyroSubSeq]
-            gyroStr = f"{gyroArr[0]},{gyroArr[1]},{gyroArr[2]}"
+                strToSend = f"{gyroStr},{accelStr}\n".encode('utf-8')
+                self.imuConv.send(strToSend)
 
-        accelStr = ""
-        if accelSubSeq is not None:
-            accelArr = [toSigned(int(a['value']),16) for a in accelSubSeq]
-            accelStr = f"{accelArr[0]},{accelArr[1]},{accelArr[2]}"
+                recD = self.imuConv.recv(self._bufSize).decode('utf-8')
+                quatFound = convQuatRegex.findall(recD)
 
-        if self.imuConv is not None and gyroStr != "" and accelStr != "":
-            self.imuConv.send(f"{gyroStr},{accelStr}\n".encode('utf-8'))
-
-            recvData = self.imuConv.recv(1024)
-
-            comptQuatsFound = comptQuatRegex.findall(recvData.decode('utf-8'))
-
-            if comptQuatsFound is not None:
-                comptQuats = [float(q) for q in comptQuatsFound[0]]
-
-        self.quatsArr = quatsArr
-        self.comptQuats = comptQuats
-
-        self.quat_delegate.dispatch((quatsArr,gyroArr,accelArr,comptQuats))
+                if quatFound is not None:
+                    quatResDict = {'convQuat' :
+                                   [float(q) for q in quatFound[0]]}
+                    self._imuResults.update(quatResDict)
 
     def __str__(self):
-        return (f"ACCEL = ({self.accel[0]},{self.accel[1]},{self.accel[2]}) "
-                f"GYRO = ({self.gyro[0]},{self.gyro[1]},{self.gyro[2]}) "
-                f"QUATERNIONS = ({self.quaternions[0]},{self.quaternions[1]}"
-                f",{self.quaternions[2]},{self.quaternions[3]})")
+        return (f"ACCEL = {self.accel} "
+                f"GYRO = {self.gyro} "
+                f"QUATERNIONS = {self.quaternions}")
+
+    def close(self):
+        if self._imuConv is not None:
+            self._imuConv.close()
+        if self._dbClient is not None:
+            self._dbClient.close()
+
+if __name__ == "__main__":
+    imuLog = imuLogger()
+    
+    while True:
+        imuLog.update()
+        print(imuLog) 
