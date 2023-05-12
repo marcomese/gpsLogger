@@ -135,11 +135,6 @@ class imuLogger(object):
                 yield retVal
 
     def update(self):
-        quatsArr = None
-        gyroArr = None
-        accelArr = None
-        comptQuats = None
-        
         qRes = {}
         for tN,tQ in self._dbQueries.items():
             q = tQ['query'].format(self._timeInterval)
@@ -195,7 +190,8 @@ if __name__ == "__main__":
     
         while True:
             imuLog.update()
-            print(imuLog) 
+            print(imuLog)
+
     except KeyboardInterrupt:
         imuLog.close()
         sys.exit("\nExiting...")
