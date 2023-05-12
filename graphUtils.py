@@ -37,19 +37,19 @@ class gpsPlotter(gpsLogger):
         self._axAlt.set_title("GPS measurements")
         self._axAlt.set_ylabel("Altitude (m)")
         self._axAlt.ticklabel_format(axis = 'y', style='plain', useOffset=False)
-        self._axAlt.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        self._axAlt.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axAlt)
 
         self._axTilt = plt.Subplot(self._fig, self._gpsMeasGrid[1], sharex=self._axAlt)
         self._axTilt.set_ylabel("GPS Tilt (radians)")
         self._axTilt.ticklabel_format(axis = 'y', style='plain', useOffset=False)
-        self._axTilt.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        self._axTilt.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axTilt)
 
         self._axYaw = plt.Subplot(self._fig, self._gpsMeasGrid[2], sharex=self._axAlt)
         self._axYaw.set_ylabel("GPS Yaw (radians)")
         self._axYaw.ticklabel_format(axis = 'y', style='plain', useOffset=False)
-        self._axYaw.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        self._axYaw.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         self._fig.add_subplot(self._axYaw)
 
         self._orientGrid = grd.GridSpecFromSubplotSpec(3, 1, subplot_spec=self._grid[3], hspace=0.0)
@@ -136,26 +136,31 @@ class gpsPlotter(gpsLogger):
 
         currTm = (cTmStruct.tm_sec + (cTmStruct.tm_min * 60)  + (cTmStruct.tm_hour * 3600))
 
-        if currTm-self._tm>=timeInterval:
-            self._tm = currTm
+        if currTm == 0:
+            self._tm = 0
 
-            if len(self._tArr) >= maxPoints:
-                self._tArr.pop(0)
-                self._altArr.pop(0)
-                self._gpsYawArr.pop(0)
-                self._gpsTiltArr.pop(0)
-                self._refreshAxis(self._axAlt)
-                self._refreshAxis(self._axYaw)
-                self._refreshAxis(self._axTilt)
+        if (currTm - self._tm) < timeInterval:
+            return
 
-            self._tArr.append(currTmStr)
-            self._altArr.append(alt)
-            self._gpsYawArr.append(yaw)
-            self._gpsTiltArr.append(tilt)
-        
-            self._axAlt.plot(self._tArr, self._altArr,'r.:')
-            self._axYaw.plot(self._tArr, self._gpsYawArr,'r.:')
-            self._axTilt.plot(self._tArr, self._gpsTiltArr,'r.:')
+        self._tm = currTm
+
+        if len(self._tArr) >= maxPoints:
+            self._tArr.pop(0)
+            self._altArr.pop(0)
+            self._gpsYawArr.pop(0)
+            self._gpsTiltArr.pop(0)
+            self._refreshAxis(self._axAlt)
+            self._refreshAxis(self._axYaw)
+            self._refreshAxis(self._axTilt)
+
+        self._tArr.append(currTmStr)
+        self._altArr.append(alt)
+        self._gpsYawArr.append(yaw)
+        self._gpsTiltArr.append(tilt)
+    
+        self._axAlt.plot(self._tArr, self._altArr,'r.:')
+        self._axYaw.plot(self._tArr, self._gpsYawArr,'r.:')
+        self._axTilt.plot(self._tArr, self._gpsTiltArr,'r.:')
 
     def update(self):
         super().update()
