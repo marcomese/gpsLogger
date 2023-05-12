@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib.ticker import FormatStrFormatter
 from mpl_toolkits.basemap import Basemap
 from datetime import datetime
-from time import strptime, gmtime
+from time import strptime
 from gpsUtils import gpsLogger
 
 class gpsPlotter(gpsLogger):
