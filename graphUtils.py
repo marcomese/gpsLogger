@@ -6,10 +6,21 @@ from mpl_toolkits.basemap import Basemap
 from datetime import datetime
 from time import strptime
 from gpsUtils import gpsLogger
+from imuUtils import imuLogger, queries
 
-class gpsPlotter(gpsLogger):
+class gpsPlotter(gpsLogger, imuLogger):
     def __init__(self, localIP = "0.0.0.0", localPort = 6003):
-        super().__init__(localIP, localPort)
+        super(gpsPlotter, self).__init__(localIP = localIP,
+                                         localPort = localPort,
+                                         dbHost = 'calibano.ba.infn.it',
+                                         dbPort = 8086,
+                                         dbQueries = queries,
+                                         database='spbmonitor',
+                                         queryInterval = 2, 
+                                         convHost = '127.0.0.1', 
+                                         convPort = 5000,
+                                         logFileName = None,
+                                         bufSize = 1024)
 
         self._tArr = []
         self._altArr = []

@@ -41,7 +41,10 @@ class imuLogger(object):
                  dbQueries = queries, database='spbmonitor',
                  queryInterval = 2, 
                  convHost = '127.0.0.1', convPort = 5000,
-                 logFileName = None, bufSize = 1024):
+                 logFileName = None, bufSize = 1024,
+                 *args, **kwargs):
+        super(imuLogger, self).__init__(*args, **kwargs)
+
         self._dbClient = InfluxDBClient(host=dbHost, 
                                         port=dbPort,
                                         database=database)

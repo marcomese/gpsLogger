@@ -26,7 +26,9 @@ gpsTimePattern = "(\d\d)(\d\d)(\d\d).00"
 gpsTimeRegex = re.compile(gpsTimePattern)
 
 class gpsLogger(object):
-    def __init__(self, localIP = "0.0.0.0", localPort = 6003):
+    def __init__(self, localIP = "0.0.0.0", localPort = 6003, *args, **kwargs):
+        super(gpsLogger, self).__init__(*args, **kwargs)
+
         self._netlogger = socket.socket(family=socket.AF_INET,
                                         type=socket.SOCK_DGRAM)
         
